@@ -1,145 +1,80 @@
 # infra-diagnostic
 
-Scripts de diagnóstico de infraestrutura para ambientes Windows Server e Linux — geram relatórios HTML com análise de CPU, memória, disco, serviços, Active Directory e conectividade de rede.
+Scripts de diagnóstico para ambientes Windows Server e Linux. Geram um relatório HTML com o estado atual da infraestrutura — CPU, memória, disco, serviços, Active Directory e conectividade.
 
-Desenvolvido com base em experiência real de suporte N2/N3 em ambientes com Windows Server, Active Directory, Proxmox e pfSense.
-
----
-
-## O que os scripts verificam
-
-### Windows (`diag_windows.ps1`)
-| Categoria | Detalhes |
-|-----------|----------|
-| Sistema | OS, build, uptime, CPU, RAM |
-| Disco | Uso por drive com alerta configurável |
-| Serviços | AD DS, DNS, DHCP, Netlogon, WinRM e outros |
-| Active Directory | SYSVOL, NETLOGON, replicação, contas bloqueadas |
-| Logs | Erros críticos no Event Log (últimas 24h) |
-| Rede | Ping com latência para destinos configuráveis |
-
-### Linux (`diag_linux.sh`)
-| Categoria | Detalhes |
-|-----------|----------|
-| Sistema | OS, kernel, uptime, load average |
-| CPU/RAM/Swap | Uso em tempo real via `/proc/stat` e `free` |
-| Disco | Todos os filesystems montados com barra de uso |
-| Serviços | systemd — qualquer serviço configurável |
-| Logs | Erros e críticos via `journalctl` (últimas 24h) |
-| Rede | Ping com latência para múltiplos destinos |
-| Segurança | Últimos logins no sistema |
+Escrevi isso porque no dia a dia de suporte N2/N3 perco tempo abrindo Gerenciador de Tarefas, Visualizador de Eventos e AD Users um por um. Agora rodo um script e tenho tudo num lugar só.
 
 ---
 
 ## Como usar
 
-### Windows Server
+**Windows Server**
 
 ```powershell
-# Execução básica (salva em ./reports/)
+# precisa rodar como Administrador
 .\scripts\diag_windows.ps1
 
-# Com caminho personalizado para o relatório
+# se quiser salvar o relatório em outro lugar
 .\scripts\diag_windows.ps1 -OutputPath "C:\Relatorios"
 
-# Sem verificações de Active Directory (workstations ou servidores sem AD)
+# em máquinas sem AD
 .\scripts\diag_windows.ps1 -SkipAD
 ```
 
-> **Permissões:** Execute como Administrador. Para as verificações de AD, é necessário ter o módulo RSAT instalado.
+Para as verificações de Active Directory, o módulo RSAT precisa estar instalado.
 
-### Linux
+**Linux**
 
 ```bash
-# Dar permissão de execução
 chmod +x scripts/diag_linux.sh
-
-# Execução básica
 bash scripts/diag_linux.sh
 
-# Com caminho personalizado para o relatório
+# caminho personalizado para o relatório
 bash scripts/diag_linux.sh --output /var/reports
 ```
 
-> Testado em Ubuntu 20.04/22.04, Debian 11/12 e CentOS 7/8. Requer: `bash`, `ping`, `df`, `free`, `journalctl`.
+Testado em Ubuntu 20.04/22.04, Debian 11/12 e CentOS 7/8.
 
 ---
 
-## Estrutura do repositório
+## O que é verificado
 
-```
-infra-diagnostic/
-├── scripts/
-│   ├── diag_windows.ps1    # Script para Windows Server
-│   └── diag_linux.sh       # Script para Linux
-├── reports/                # Relatórios gerados (ignorado pelo Git)
-├── docs/
-│   └── exemplo-relatorio.png
-└── README.md
-```
+No Windows: sistema operacional, uptime, uso de CPU e RAM, espaço em disco por drive, status dos serviços críticos (AD DS, DNS, DHCP, Netlogon, WinRM), saúde do Active Directory (SYSVOL, replicação, contas bloqueadas) e erros no Event Log das últimas 24h.
 
----
-
-## Exemplo de relatório
-
-O relatório HTML gerado inclui:
-- Cards com métricas principais (CPU, RAM, erros de log)
-- Barras de uso visual para cada disco
-- Badges coloridos por status (verde / amarelo / vermelho)
-- Tabelas de serviços, conectividade e AD
+No Linux: mesmas métricas de sistema, todos os filesystems montados, serviços via systemd, erros no journalctl das últimas 24h e últimos logins.
 
 ---
 
 ## Personalização
 
-### Adicionar serviços para monitorar (Windows)
-
-Edite o array `$CriticalServices` em `diag_windows.ps1`:
+Os serviços monitorados ficam num array no início de cada script. É só adicionar ou remover conforme o ambiente:
 
 ```powershell
-$CriticalServices = @(
-    "NTDS",
-    "DNS",
-    "DHCPServer",
-    "SeuServicoAqui"   # ← adicione aqui
-)
+# diag_windows.ps1
+$CriticalServices = @("NTDS", "DNS", "DHCPServer", "SeuServicoAqui")
 ```
-
-### Alterar limites de alerta (Linux)
-
-Edite as variáveis no início de `diag_linux.sh`:
 
 ```bash
-DISK_ALERT=80   # % de uso do disco para gerar alerta
-CPU_ALERT=70
-RAM_ALERT=80
+# diag_linux.sh
+CRITICAL_SERVICES=("ssh" "nginx" "docker" "seu-servico")
 ```
 
----
-
-## Roadmap
-
-- [x] Diagnóstico Windows Server com relatório HTML
-- [x] Diagnóstico Linux com relatório HTML
-- [ ] Agendamento via Task Scheduler / cron com envio por e-mail
-- [ ] Alerta automático no Telegram quando status for CRÍTICO
-- [ ] Suporte a múltiplos hosts remotos (via WinRM / SSH)
-- [ ] Integração com Zabbix para disparar script via trigger
+Os limites de alerta também ficam no início do script e são fáceis de ajustar.
 
 ---
 
-## Tecnologias
+## Próximos passos
 
-![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?style=flat&logo=powershell&logoColor=white)
-![Bash](https://img.shields.io/badge/Bash-4EAA25?style=flat&logo=gnu-bash&logoColor=white)
-![Windows Server](https://img.shields.io/badge/Windows_Server-0078D6?style=flat&logo=windows&logoColor=white)
-![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)
+- Agendamento via Task Scheduler e cron com envio do relatório por e-mail
+- Alerta no Telegram quando algum status for crítico
+- Suporte a múltiplos hosts remotos
 
 ---
 
-## Autor
+## Ambiente de desenvolvimento
 
-**Bruno Alves** — Analista de Suporte N2 | Infraestrutura e Redes
+PowerShell 5.1+ e Bash 4+. Sem dependências externas.
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-brunoalvestech-0A66C2?style=flat&logo=linkedin)](https://linkedin.com/in/brunoalvestech)
-[![GitHub](https://img.shields.io/badge/GitHub-brunoalvestech-181717?style=flat&logo=github)](https://github.com/brunoalvestech)
+---
+
+Bruno Alves — [linkedin.com/in/brunoalvestech](https://linkedin.com/in/brunoalvestech)
